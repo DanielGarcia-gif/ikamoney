@@ -16,13 +16,20 @@ def health():
 
 @router.get("/ping-db")
 def ping_db(db: Session = Depends(get_db)):
-    """Prueba de la tubería: lee un mensaje de MySQL."""
+    """Prueba de la tubería: lee de MySQL en qué migración está el esquema.
+
+    Si responde bien, la base conecta Y las migraciones ya se aplicaron.
+    """
     try:
-        row = db.execute(
-            text("SELECT message FROM pipeline_check ORDER BY id LIMIT 1")
-        ).first()
+        row = db.execute(text("SELECT version_num FROM alembic_version")).first()
     except SQLAlchemyError:
-        raise HTTPException(status_code=503, detail="No se pudo consultar la base de datos")
+        raise HTTPException(
+            status_code=503,
+            detail="No se pudo leer la base de datos. ¿Corriste las migraciones? (alembic upgrade head)",
+        )
     if row is None:
-        raise HTTPException(status_code=404, detail="La tabla pipeline_check está vacía")
-    return {"message": row[0]}
+        raise HTTPException(
+            status_code=503,
+            detail="La base no tiene migraciones aplicadas. Corre: alembic upgrade head",
+        )
+    return {"message": f"Base de datos conectada. Esquema en la migración {row[0]}."}
